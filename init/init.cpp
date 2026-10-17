@@ -1062,6 +1062,7 @@ int SecondStageMain(int argc, char** argv) {
     SetStdioToDevNull(argv);
     InitKernelLogging(argv);
     LOG(INFO) << "init second stage started!";
+    RecordBootStage("second-stage-main");
 
     SelinuxSetupKernelLogging();
 
@@ -1183,6 +1184,7 @@ int SecondStageMain(int argc, char** argv) {
     ServiceList& sm = ServiceList::GetInstance();
 
     LoadBootScripts(am, sm);
+    RecordBootStage("boot-scripts-loaded");
 
     // Turning this on and letting the INFO logging be discarded adds 0.2s to
     // Nexus 9 boot time, so it's disabled by default.

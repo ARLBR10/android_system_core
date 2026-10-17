@@ -215,6 +215,50 @@ Result<void> WriteFile(const std::string& path, const std::string& content) {
     return {};
 }
 
+Result<void> WriteFileSync(const std::string& path, const std::string& content) {
+    android::base::unique_fd fd(TEMP_FAILURE_RETRY(
+        OpenFile(path, O_WRONLY | O_CREAT | O_NOFOLLOW | O_TRUNC | O_CLOEXEC, 0600)));
+    if (fd == -1) {
+        return ErrnoError() << "open() failed";
+    }
+    if (!android::base::WriteStringToFd(content, fd)) {
+        return ErrnoError() << "Unable to write file contents";
+    }
+    if (fsync(fd.get()) == -1) {
+        return ErrnoError() << "fsync() failed";
+    }
+
+    android::base::unique_fd parent_fd(TEMP_FAILURE_RETRY(
+        open(android::base::Dirname(path).c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC)));
+    if (parent_fd == -1) {
+        return ErrnoError() << "open parent directory failed";
+    }
+    if (fsync(parent_fd.get()) == -1) {
+        return ErrnoError() << "fsync parent directory failed";
+    }
+    return {};
+}
+
+void RecordBootStage(const std::string& stage) {
+    struct stat root_stat {};
+    struct stat metadata_stat {};
+    if (stat("/", &root_stat) == -1 || stat("/metadata", &metadata_stat) == -1 ||
+        root_stat.st_dev == metadata_stat.st_dev) {
+        LOG(ERROR) << "Metadata is not mounted; refusing boot-stage marker";
+        return;
+    }
+
+    if (!mkdir_recursive("/metadata/vold", 0700)) {
+        PLOG(ERROR) << "Unable to create boot-stage marker directory";
+        return;
+    }
+
+    if (auto result = WriteFileSync("/metadata/vold/odessa-bootdiag-first-stage", stage);
+        !result.ok()) {
+        LOG(ERROR) << "Unable to write boot-stage marker: " << result.error();
+    }
+}
+
 bool mkdir_recursive(const std::string& path, mode_t mode) {
     std::string::size_type slash = 0;
     while ((slash = path.find('/', slash + 1)) != std::string::npos) {

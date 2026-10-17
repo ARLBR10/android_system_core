@@ -820,6 +820,8 @@ int SetupSelinux(char** argv) {
 
     setenv(kEnvSelinuxStartedAt, std::to_string(start_time.time_since_epoch().count()).c_str(), 1);
 
+    RecordBootStage("selinux-setup-complete");
+
     // SetupOverlays does not return if overlays exist, instead it execs overlay_remounter
     // which then execs second stage init
     if (use_overlays) SetupOverlays();

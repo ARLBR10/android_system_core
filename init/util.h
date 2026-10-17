@@ -49,6 +49,8 @@ Result<int> CreateSocket(const std::string& name, int type, bool passcred, bool 
 
 Result<std::string> ReadFile(const std::string& path);
 Result<void> WriteFile(const std::string& path, const std::string& content);
+Result<void> WriteFileSync(const std::string& path, const std::string& content);
+void RecordBootStage(const std::string& stage);
 
 Result<uid_t> DecodeUid(const std::string& name);
 

@@ -250,6 +250,7 @@ bool FirstStageMountVBootV2::DoCreateDevices() {
     });
     if (metadata_partition != fstab_.end()) {
         if (MountPartition(metadata_partition, true /* erase_same_mounts */)) {
+            RecordBootStage("first-stage-metadata-mounted");
             // Copies DSU AVB keys from the ramdisk to /metadata.
             // Must be done before the following TrySwitchSystemAsRoot().
             // Otherwise, ramdisk will be inaccessible after switching root.
@@ -258,6 +259,8 @@ bool FirstStageMountVBootV2::DoCreateDevices() {
     }
 
     if (!CreateLogicalPartitions()) return false;
+
+    RecordBootStage("first-stage-devices-created");
 
     return true;
 }
@@ -552,8 +555,10 @@ bool FirstStageMountVBootV2::TrySwitchSystemAsRoot() {
         SaveRamdiskPathToSnapuserd();
     }
 
+    RecordBootStage("first-stage-system-mount-start");
     if (!MountPartition(system_partition, false /* erase_same_mounts */)) {
         PLOG(ERROR) << "Failed to mount /system";
+        RecordBootStage("first-stage-system-mount-failed");
         return false;
     }
     if (dsu_not_on_userdata_ && fs_mgr_verity_is_check_at_most_once(*system_partition)) {
@@ -562,6 +567,8 @@ bool FirstStageMountVBootV2::TrySwitchSystemAsRoot() {
     }
 
     SwitchRoot("/system");
+
+    RecordBootStage("first-stage-system-mounted");
 
     return true;
 }
@@ -602,6 +609,8 @@ static bool MaybeDeriveMicrodroidVendorDiceNode(Fstab* fstab) {
 bool FirstStageMountVBootV2::MountPartitions() {
     if (!TrySwitchSystemAsRoot()) return false;
 
+    RecordBootStage("first-stage-system-ready");
+
     if (IsMicrodroid() && android::virtualization::IsOpenDiceChangesFlagEnabled()) {
         if (!MaybeDeriveMicrodroidVendorDiceNode(&fstab_)) {
             return false;
@@ -632,6 +641,7 @@ bool FirstStageMountVBootV2::MountPartitions() {
         }
 
         Fstab::iterator end;
+        RecordBootStage("first-stage-mount-start:" + current->mount_point);
         if (!MountPartition(current, false /* erase_same_mounts */, &end)) {
             if (current->fs_mgr_flags.no_fail) {
                 LOG(INFO) << "Failed to mount " << current->mount_point
@@ -641,8 +651,11 @@ bool FirstStageMountVBootV2::MountPartitions() {
                           << ", ignoring mount for formattable partition";
             } else {
                 PLOG(ERROR) << "Failed to mount " << current->mount_point;
+                RecordBootStage("first-stage-mount-failed:" + current->mount_point);
                 return false;
             }
+        } else {
+            RecordBootStage("first-stage-mounted:" + current->mount_point);
         }
         current = end;
     }

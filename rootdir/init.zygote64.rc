@@ -5,6 +5,7 @@ service zygote /system/bin/app_process64 -Xzygote /system/bin --zygote --start-s
     group root readproc reserved_disk
     socket zygote stream 660 root system
     socket usap_pool_primary stream 660 root system
+    onrestart copy /data/misc/logd/logcat /metadata/vold/odessa-bootdiag-logcat
     onrestart exec_background - system system -- /system/bin/vdc volume abort_fuse
     onrestart write /sys/power/state on
     # NOTE: If the wakelock name here is changed, then also

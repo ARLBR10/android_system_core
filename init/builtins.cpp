@@ -869,6 +869,15 @@ static Result<void> do_write(const BuiltinArguments& args) {
     return {};
 }
 
+static Result<void> do_write_sync(const BuiltinArguments& args) {
+    if (auto result = WriteFileSync(args[1], args[2]); !result.ok()) {
+        return ErrorIgnoreEnoent()
+               << "Unable to synchronously write to file '" << args[1] << "': " << result.error();
+    }
+
+    return {};
+}
+
 static Result<void> readahead_file(const std::string& filename, bool fully) {
     android::base::unique_fd fd(TEMP_FAILURE_RETRY(open(filename.c_str(), O_RDONLY | O_CLOEXEC)));
     if (fd == -1) {
@@ -1338,6 +1347,7 @@ const BuiltinFunctionMap& GetBuiltinFunctionMap() {
         {"wait",                    {1,     2,    {true,   do_wait}}},
         {"wait_for_prop",           {2,     2,    {false,  do_wait_for_prop}}},
         {"write",                   {2,     2,    {true,   do_write}}},
+        {"write_sync",              {2,     2,    {true,   do_write_sync}}},
     };
     // clang-format on
     return builtin_functions;

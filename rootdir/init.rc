@@ -705,6 +705,29 @@ on property:ro.product.cpu.abilist64=* && property:bootreceiver.enable=1
     write /sys/kernel/tracing/instances/bootreceiver/events/error_report/error_report_end/enable 1
 
 on post-fs-data
+    # Temporary Odessa boot-stage diagnostics. Each marker is fsynced so it
+    # remains readable from Recovery after a reset; remove before release.
+    rm /metadata/vold/odessa-bootdiag-bpf-start
+    rm /metadata/vold/odessa-bootdiag-bpf-done
+    rm /metadata/vold/odessa-bootdiag-zygote-start
+    rm /metadata/vold/odessa-bootdiag-odsign-verified
+    rm /metadata/vold/odessa-bootdiag-statsd-started
+    rm /metadata/vold/odessa-bootdiag-zygote-primary-started
+    rm /metadata/vold/odessa-bootdiag-zygote-secondary-started
+    rm /metadata/vold/odessa-bootdiag-early-boot
+    rm /metadata/vold/odessa-bootdiag-boot
+    rm /metadata/vold/odessa-bootdiag-zygote-running
+    rm /metadata/vold/odessa-bootdiag-zygote-restarting
+    rm /metadata/vold/odessa-bootdiag-zygote-secondary-running
+    rm /metadata/vold/odessa-bootdiag-zygote-secondary-restarting
+    rm /metadata/vold/odessa-bootdiag-surfaceflinger-running
+    rm /metadata/vold/odessa-bootdiag-surfaceflinger-restarting
+    rm /metadata/vold/odessa-bootdiag-bootanim-running
+    rm /metadata/vold/odessa-bootdiag-bootanim-restarting
+    rm /metadata/vold/odessa-bootdiag-boot-completed
+    rm /metadata/vold/odessa-bootdiag-logcat
+    write_sync /metadata/vold/odessa-bootdiag-post-fs-data post-fs-data
+
 
     # Start checkpoint before we touch data
     exec - system system -- /system/bin/vdc checkpoint prepareCheckpoint
@@ -1141,7 +1164,9 @@ on load-bpf-programs
     # NOTE: Still requires CAP_SYSLOG and sepolicy allow rules to read /proc/kallsyms
     write /proc/sys/kernel/kptr_restrict 1
 
+    write_sync /metadata/vold/odessa-bootdiag-bpf-start bpf-start
     exec_start bpfloader
+    write_sync /metadata/vold/odessa-bootdiag-bpf-done bpf-done
 
     # Restore kallsyms protection after bpf programs have been loaded.
     write /proc/sys/kernel/kptr_restrict 2
@@ -1152,10 +1177,48 @@ on bpf-progs-loaded
 # It is recommended to put unnecessary data/ initialization from post-fs-data
 # to start-zygote in device's init.rc to unblock zygote start.
 on zygote-start
+    write_sync /metadata/vold/odessa-bootdiag-zygote-start zygote-start
     wait_for_prop odsign.verification.done 1
+    write_sync /metadata/vold/odessa-bootdiag-odsign-verified odsign-verified
     start statsd
+    write_sync /metadata/vold/odessa-bootdiag-statsd-started statsd-started
     start zygote
+    write_sync /metadata/vold/odessa-bootdiag-zygote-primary-started zygote-primary-started
     start zygote_secondary
+    write_sync /metadata/vold/odessa-bootdiag-zygote-secondary-started zygote-secondary-started
+
+on early-boot
+    write_sync /metadata/vold/odessa-bootdiag-early-boot early-boot
+
+on boot
+    write_sync /metadata/vold/odessa-bootdiag-boot boot
+
+on property:init.svc.zygote=running
+    write_sync /metadata/vold/odessa-bootdiag-zygote-running zygote-running
+
+on property:init.svc.zygote=restarting
+    write_sync /metadata/vold/odessa-bootdiag-zygote-restarting zygote-restarting
+
+on property:init.svc.zygote_secondary=running
+    write_sync /metadata/vold/odessa-bootdiag-zygote-secondary-running zygote-secondary-running
+
+on property:init.svc.zygote_secondary=restarting
+    write_sync /metadata/vold/odessa-bootdiag-zygote-secondary-restarting zygote-secondary-restarting
+
+on property:init.svc.surfaceflinger=running
+    write_sync /metadata/vold/odessa-bootdiag-surfaceflinger-running surfaceflinger-running
+
+on property:init.svc.surfaceflinger=restarting
+    write_sync /metadata/vold/odessa-bootdiag-surfaceflinger-restarting surfaceflinger-restarting
+
+on property:init.svc.bootanim=running
+    write_sync /metadata/vold/odessa-bootdiag-bootanim-running bootanim-running
+
+on property:init.svc.bootanim=restarting
+    write_sync /metadata/vold/odessa-bootdiag-bootanim-restarting bootanim-restarting
+
+on property:sys.boot_completed=1
+    write_sync /metadata/vold/odessa-bootdiag-boot-completed boot-completed
 
 on boot && property:ro.config.low_ram=true
     # Tweak background writeout
